@@ -1,3 +1,5 @@
+import scala.collection.immutable.IndexedSeq
+
 trait Groupable {
   def groupMap[A, B](groups: Traversable[A])(mapper: (A) => Seq[B]) = groups.map(mapper)
 
@@ -14,7 +16,7 @@ trait EqualityTester {
 }
 
 class Board[A](columns: Int, rows: Int, initValue: A) extends Groupable {
-  var pieces : List[A] = List.fill(rows * columns)(initValue)
+  var pieces : Seq[A] = IndexedSeq.fill(rows * columns)(initValue)
 
   def update(row: Int, column: Int, piece: A) {
     checkBounds(row, column)
@@ -89,8 +91,8 @@ class TicTacToeGame extends EqualityTester {
   }
 
   private def collectWinners(groups: Traversable[Seq[BoardPiece]]) = {
-    groups.foldLeft(List[BoardPiece]()) { (winners, group) => 
-      if (allEqual(group)) group.head :: winners else winners
+    groups.foldLeft(Seq[BoardPiece]()) { (winners, group) => 
+      if (allEqual(group)) group.head +: winners else winners
     }.distinct.filterNot(_ == Blank)
   }
 
