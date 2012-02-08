@@ -33,16 +33,20 @@ class Board[A](columns: Int, rows: Int, initValue: A) extends Groupable {
   }
 
   def groupByColumns : Traversable[Seq[A]] = {
-    val columnMapper = groupFilter { (group: Int, index) => index % rows == group }(pieces) _
+    val columnMapper = groupFilter { (group: Int, index) => column(index) == group }(pieces) _
 
     groupMap(0.until(columns))(columnMapper)
   }
 
   def groupByRows : Traversable[Seq[A]] = {
-    val rowMapper = groupFilter { (group: Int, index) => index / rows == group }(pieces) _
+    val rowMapper = groupFilter { (group: Int, index) => row(index) == group }(pieces) _
 
     groupMap(0.until(rows))(rowMapper)
   }
+
+  protected def column(index: Int) = index % rows
+
+  protected def row(index: Int) = index / rows
 
   override def toString = groupByRows.map(_.mkString("[", ",", "]")).mkString("\n")
 }
@@ -55,8 +59,8 @@ class SquareBoard[A](size: Int, initValue: A) extends Board[A](size, size, initV
   def groupByDiagonal : Traversable[Seq[A]] = {
     val diagonalMapper = groupFilter { (group: Diagonal, index) =>
       group match {
-        case TopLeft => index / size == index % size
-        case TopRight => index / size == (size - 1 - (index % size))
+        case TopLeft => column(index) == row(index)
+        case TopRight => row(index) == size - 1 - column(index)
       }
     }(pieces) _
 
