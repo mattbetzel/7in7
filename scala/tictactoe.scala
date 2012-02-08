@@ -99,28 +99,37 @@ class TicTacToeGame extends EqualityTester {
   def boardAsString = board.toString
 }
 
-def turn(player: PlayerPiece, game: TicTacToeGame) {
-  println(game.boardAsString)
+class InteractiveTicTacToe {
+  private def input(player: PlayerPiece, group: String) : Int = {
+    printf("Enter %s for player %s: ", group, player)
+    readInt
+  }
 
-  try {
-    printf("Enter row for player %s: ", player)
-    val row = readInt
-    printf("Enter column for player %s: ", player)
-    val column = readInt
+  private def inputTurn(player: PlayerPiece) : (Int, Int) =
+    (input(player, "row"), input(player, "column"))
 
-    game(row, column) = player
+  private def turn(player: PlayerPiece, game: TicTacToeGame) {
+    println(game.boardAsString)
 
-    game.winner match {
-      case Some(w) => printf("%s\nPlayer %s won\n", game.boardAsString, w)
-      case None => turn(if (player == X) O else X, game)
-    }
-  } catch  {
-    case e: Exception => {
-      println(e.getMessage)
-      turn(player, game)
+    try {
+      val (row, column) = inputTurn(player)
+      game(row, column) = player
+
+      game.winner match {
+        case Some(w) => printf("%s\nPlayer %s won\n", game.boardAsString, w)
+        case None => turn(if (player == X) O else X, game)
+      }
+    } catch  {
+      case e: Exception => {
+        println(e.getMessage)
+        turn(player, game)
+      }
     }
   }
 
+  def go {
+    turn(X, new TicTacToeGame())
+  }
 }
 
-turn(X, new TicTacToeGame())
+new InteractiveTicTacToe().go
