@@ -5,9 +5,9 @@ trait Groupable {
 
   def groupFilter[A, B](inGroup: (A, Int) => Boolean)(items: Seq[B])(group: A) = 
     items.zipWithIndex.filter {
-      case (piece, index) => inGroup(group, index)
+      case (_, index) => inGroup(group, index)
     }.map {
-      case (piece, _) => piece
+      case (item, _) => item
     }
 }
 
@@ -29,9 +29,8 @@ class Board[A](columns: Int, rows: Int, initValue: A) extends Groupable {
   }
 
   private def checkBounds(row: Int, column: Int) {
-    if (column < 0 || column >= columns || row < 0 || row >= rows) {
-      throw new IllegalArgumentException("Invalid location row: %d, column: %d".format(row, column))
-    }
+    require(column >= 0 && column < columns && row >= 0 && row < rows,
+      "Invalid location row: %d, column: %d".format(row, column))
   }
 
   def groupByColumns : Traversable[Seq[A]] = {
@@ -80,7 +79,8 @@ class TicTacToeGame extends EqualityTester {
   private val board = new SquareBoard[BoardPiece](3, Blank)
 
   def update(row: Int, column: Int, piece: PlayerPiece) {
-    if (board(row, column) != Blank) throw new IllegalStateException("A piece has already been placed at row: %d, column: %d".format(row, column))
+    require(board(row, column) == Blank,
+      "A piece has already been placed at row: %d, column: %d".format(row, column))
     board(row, column) = piece
   }
 
