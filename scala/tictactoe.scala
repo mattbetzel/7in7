@@ -1,8 +1,4 @@
-import scala.collection.immutable.IndexedSeq
-
 trait Groupable {
-  def groupMap[A, B](groups: Traversable[A])(mapper: (A) => Seq[B]) = groups.map(mapper)
-
   def groupFilter[A, B](inGroup: (A, Int) => Boolean)(items: Seq[B])(group: A) = 
     items.zipWithIndex.filter {
       case (_, index) => inGroup(group, index)
@@ -36,13 +32,13 @@ class Board[A](columns: Int, rows: Int, initValue: A) extends Groupable {
   def groupByColumns : Traversable[Seq[A]] = {
     val columnMapper = groupFilter { (group: Int, index) => column(index) == group }(pieces) _
 
-    groupMap(0.until(columns))(columnMapper)
+    0.until(columns).map(columnMapper) 
   }
 
   def groupByRows : Traversable[Seq[A]] = {
     val rowMapper = groupFilter { (group: Int, index) => row(index) == group }(pieces) _
 
-    groupMap(0.until(rows))(rowMapper)
+    0.until(rows).map(rowMapper)
   }
 
   protected def column(index: Int) = index % rows
@@ -65,7 +61,7 @@ class SquareBoard[A](size: Int, initValue: A) extends Board[A](size, size, initV
       }
     }(pieces) _
 
-    groupMap(Set(TopLeft, TopRight))(diagonalMapper)
+    Set(TopLeft, TopRight).map(diagonalMapper)
   }
 }
 
