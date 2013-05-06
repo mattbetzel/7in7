@@ -9,10 +9,6 @@
   "A shop can only have 3 customers in the waiting room"
   (<= (count waiting) 3))
 
-(defn queue []
-  "Create an empty queue"
-  (clojure.lang.PersistentQueue/EMPTY))
-
 (defn add-customer [shop customer]
   "Add a customer to the waiting room if there is an empty seat"
   (if (< (count (shop :waiting)) 3)
@@ -44,31 +40,38 @@
   "Returns truthy if a value was present in old map but isn't present in new map"
   (and (get-in old-state ks) (not (get-in new-state ks))))
 
-(defn receptionist [_ shop-ref old-shop new-shop]
+(defn receptionist []
   "If the chair is emptied or a customer comes into an empty shop,
   take a customer to the chair"
-  (let [chair-emptied (removed? [:chair] old-shop new-shop)
-        first-customer (and (empty? (old-shop :waiting)) (not-empty (new-shop :waiting)))]
-    (when (or chair-emptied first-customer) (println "Taking") (swap! shop-ref take-waiting-customer))))
+  (fn [_ shop-ref old-shop new-shop]
+    (let [chair-emptied (removed? [:chair] old-shop new-shop)
+          first-customer (and (empty? (old-shop :waiting)) (not-empty (new-shop :waiting)))]
+      (when (or chair-emptied first-customer) (println "Taking") (swap! shop-ref take-waiting-customer)))))
 
-(defn barber [cut-delay _ shop-ref old-shop new-shop]
+(defn barber [cut-delay]
   "If the chair is filled, finish the hair cut after delay"
-  (let [chair-filled (added? [:chair] old-shop new-shop)]
-    (when chair-filled (future (delayed cut-delay (println "Finished" (new-shop :chair)) (swap! shop-ref finish-hair-cut))))))
+  (fn [_ shop-ref old-shop new-shop]
+    (let [chair-filled (added? [:chair] old-shop new-shop)]
+      (when chair-filled (future (delayed cut-delay (println "Finished" (new-shop :chair)) (swap! shop-ref finish-hair-cut)))))))
 
 (defn run-customers [shop-ref customers]
   "Add the customers to the shop at a delayed rate"
   (doseq [[id enter-delay] customers]
     (delayed enter-delay (println "Adding" id) (swap! shop-ref add-customer id))))
 
-(defn empty-shop [cut-delay]
-  "Create an empty shop with a receptionist and barber"
-  (-> (atom {:waiting (queue) :chair nil} :validator shop-valid?)
-      (add-watch :receptionist receptionist)
-      (add-watch :barber (partial barber cut-delay))))
+(defn queue []
+  "Create an empty queue"
+  (clojure.lang.PersistentQueue/EMPTY))
 
-(def my-shop (empty-shop 2000))
+(defn empty-shop [& watcher-opts]
+  "Create an empty shop with the provided watchers"
+  (let [watchers (partition 2 watcher-opts)
+        shop-ref (atom {:waiting (queue) :chair nil} :validator shop-valid?)
+        reduce-fn (fn [shop-ref [watch-key watcher]] (add-watch shop-ref watch-key watcher))]
+    (reduce reduce-fn shop-ref watchers)))
 
-(run-customers my-shop (take 5 (customers 1000 3000)))
+(def my-shop (empty-shop :barber (barber 200) :receptionist (receptionist)))
+
+(run-customers my-shop (take 50 (customers 100 300)))
 
 (count (@my-shop :waiting))
