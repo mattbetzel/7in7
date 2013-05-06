@@ -1,4 +1,11 @@
 ;Day 3
+(defn queue []
+  "Create an empty queue"
+  (clojure.lang.PersistentQueue/EMPTY))
+
+(defn empty-shop [waiting-room-size]
+  {:waiting (queue) :waiting-room-size waiting-room-size :chair nil :total-cut 0})
+
 (defn customers [lower upper]
   "An infinite seq of customer ids and pace"
   (let [ids (range)
@@ -7,7 +14,7 @@
 
 (defn add-customer [shop customer]
   "Add a customer to the waiting room if there is an empty seat"
-  (if (< (count (shop :waiting)) 3)
+  (if (< (count (shop :waiting)) (shop :waiting-room-size))
     (update-in shop [:waiting] conj customer)
     shop))
 
@@ -61,6 +68,7 @@
    (doseq [[id enter-delay] customers]
     (delayed enter-delay (println "Adding" id) (swap! shop-ref add-customer id)))
    (@shop-ref :total-cut))
+
   ([shop-ref customers duration]
    (let [start (System/currentTimeMillis)]
      (loop [[[id enter-delay] & xs] customers]
@@ -69,22 +77,18 @@
          (recur xs))))
    (@shop-ref :total-cut)))
 
-(defn queue []
-  "Create an empty queue"
-  (clojure.lang.PersistentQueue/EMPTY))
+(defn shop-valid? [{waiting :waiting max-size :waiting-room-size}]
+  "A shop can't have too many customers in the waiting room"
+  (<= (count waiting) max-size))
 
-(defn shop-valid? [{waiting :waiting}]
-  "A shop can only have 3 customers in the waiting room"
-  (<= (count waiting) 3))
-
-(defn empty-shop [& watcher-opts]
+(defn employ-shop [shop & watcher-opts]
   "Create an empty shop with the provided watchers"
   (let [watchers (partition 2 watcher-opts)
-        shop-ref (atom {:waiting (queue) :chair nil :total-cut 0} :validator shop-valid?)
+        shop-ref (atom shop :validator shop-valid?)
         reduce-fn (fn [shop-ref [watch-key watcher]] (add-watch shop-ref watch-key watcher))]
     (reduce reduce-fn shop-ref watchers)))
 
-(def my-shop (empty-shop :barber (barber 20) :receptionist (receptionist)))
+(def my-shop (employ-shop (empty-shop 3) :barber (barber 20) :receptionist (receptionist)))
 
 (run-customers my-shop (customers 10 30) 10000)
 
