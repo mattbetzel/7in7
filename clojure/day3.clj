@@ -5,10 +5,6 @@
         pace (repeatedly #(+ lower (rand-int (- upper lower))))]
     (map vector ids pace)))
 
-(defn shop-valid? [{waiting :waiting}]
-  "A shop can only have 3 customers in the waiting room"
-  (<= (count waiting) 3))
-
 (defn add-customer [shop customer]
   "Add a customer to the waiting room if there is an empty seat"
   (if (< (count (shop :waiting)) 3)
@@ -18,13 +14,18 @@
 (defn take-waiting-customer [{:keys [waiting chair] :as shop}]
   "Move customer from waiting room to barber chair,
   if waiting customer is available and chair is empty"
-  (if (and (not-empty waiting) (nil? chair))
-    {:waiting (pop waiting) :chair (peek waiting)}
-    shop))
+  (let [waiting-customer (peek waiting)]
+    (if (and waiting-customer (nil? chair))
+      (-> shop
+          (update-in [:waiting] pop)
+          (assoc-in [:chair] waiting-customer))
+      shop)))
 
 (defn finish-hair-cut [{chair :chair :as shop}]
   "Remove current customer from barber chair"
-  (assoc-in shop [:chair] nil))
+  (-> shop
+      (assoc-in [:chair] nil)
+      (update-in [:total-cut] inc)))
 
 (defmacro delayed [ms & body]
   "Wait the specified number of milliseconds and then execute body"
@@ -54,24 +55,37 @@
     (let [chair-filled (added? [:chair] old-shop new-shop)]
       (when chair-filled (future (delayed cut-delay (println "Finished" (new-shop :chair)) (swap! shop-ref finish-hair-cut)))))))
 
-(defn run-customers [shop-ref customers]
-  "Add the customers to the shop at a delayed rate"
-  (doseq [[id enter-delay] customers]
-    (delayed enter-delay (println "Adding" id) (swap! shop-ref add-customer id))))
+(defn run-customers
+  "Add the customers to the shop at a delayed rate and returns number customers served"
+  ([shop-ref customers]
+   (doseq [[id enter-delay] customers]
+    (delayed enter-delay (println "Adding" id) (swap! shop-ref add-customer id)))
+   (@shop-ref :total-cut))
+  ([shop-ref customers duration]
+   (let [start (System/currentTimeMillis)]
+     (loop [[[id enter-delay] & xs] customers]
+       (delayed enter-delay (println "Adding" id) (swap! shop-ref add-customer id))
+       (when (and (not-empty xs) (< (- (System/currentTimeMillis) start) duration))
+         (recur xs))))
+   (@shop-ref :total-cut)))
 
 (defn queue []
   "Create an empty queue"
   (clojure.lang.PersistentQueue/EMPTY))
 
+(defn shop-valid? [{waiting :waiting}]
+  "A shop can only have 3 customers in the waiting room"
+  (<= (count waiting) 3))
+
 (defn empty-shop [& watcher-opts]
   "Create an empty shop with the provided watchers"
   (let [watchers (partition 2 watcher-opts)
-        shop-ref (atom {:waiting (queue) :chair nil} :validator shop-valid?)
+        shop-ref (atom {:waiting (queue) :chair nil :total-cut 0} :validator shop-valid?)
         reduce-fn (fn [shop-ref [watch-key watcher]] (add-watch shop-ref watch-key watcher))]
     (reduce reduce-fn shop-ref watchers)))
 
-(def my-shop (empty-shop :barber (barber 200) :receptionist (receptionist)))
+(def my-shop (empty-shop :barber (barber 20) :receptionist (receptionist)))
 
-(run-customers my-shop (take 50 (customers 100 300)))
+(run-customers my-shop (customers 10 30) 10000)
 
 (count (@my-shop :waiting))
